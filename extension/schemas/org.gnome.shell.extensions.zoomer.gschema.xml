@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.hati" path="/org/gnome/shell/extensions/hati/">
+  <schema id="org.gnome.shell.extensions.zoomer" path="/org/gnome/shell/extensions/zoomer/">
     
     <key name="enabled" type="b">
       <default>false</default>
-      <summary>Enable Hati cursor highlighter</summary>
+      <summary>Enable Zoomer cursor highlighter</summary>
       <description>Master toggle for cursor highlighting</description>
     </key>
 
     <key name="show-indicator" type="b">
       <default>false</default>
       <summary>Show panel indicator</summary>
-      <description>If true, show the Hati icon in the top bar</description>
+      <description>If true, show the Zoomer icon in the top bar</description>
     </key>
 
     <key name="highlight-ring" type="b">

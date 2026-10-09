@@ -174,7 +174,7 @@ export class Magnifier {
       return;
     }
 
-    console.log("[Hati] Magnifier ACTIVATED");
+    console.log("[Zoomer] Magnifier ACTIVATED");
     this._active = true;
 
     this._group.remove_all_transitions();
@@ -216,7 +216,7 @@ export class Magnifier {
   deactivate() {
     if (!this._active || !this._group) return;
 
-    console.log("[Hati] Magnifier DEACTIVATED");
+    console.log("[Zoomer] Magnifier DEACTIVATED");
     this._active = false;
 
     this._group.remove_all_transitions();
@@ -259,7 +259,7 @@ export class Magnifier {
     // debug logging
     if (!this._lastLogTime || Date.now() - this._lastLogTime > 2000) {
       console.log(
-        `[Hati Magnifier] size=${size}, diameter=${magnifierDiameter}`,
+        `[Zoomer Magnifier] size=${size}, diameter=${magnifierDiameter}`,
       );
       this._lastLogTime = Date.now();
     }

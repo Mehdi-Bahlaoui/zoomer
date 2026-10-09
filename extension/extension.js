@@ -28,7 +28,7 @@ import { AutoHide } from "./modules/auto-hide.js";
 import Indicator from "./modules/indicator.js";
 import { Spotlight } from "./modules/spotlight.js";
 
-export default class HatiExtension extends Extension {
+export default class ZoomerExtension extends Extension {
   constructor(metadata) {
     super(metadata);
     this._containerActor = null;
@@ -40,7 +40,7 @@ export default class HatiExtension extends Extension {
   }
 
   async enable() {
-    console.log("[Hati] Enabling cursor highlighter...");
+    console.log("[Zoomer] Enabling cursor highlighter...");
 
     await initShaders(this.path);
 
@@ -80,11 +80,11 @@ export default class HatiExtension extends Extension {
 
     this._createHighlightActor();
 
-    console.log("[Hati] Enabled successfully");
+    console.log("[Zoomer] Enabled successfully");
   }
 
   disable() {
-    console.log("[Hati] Disabling cursor highlighter...");
+    console.log("[Zoomer] Disabling cursor highlighter...");
 
     if (this._indicator) {
       this._indicator.destroy();
@@ -110,7 +110,7 @@ export default class HatiExtension extends Extension {
       this._interfaceSettings = null;
     }
 
-    console.log("[Hati] Disabled successfully");
+    console.log("[Zoomer] Disabled successfully");
   }
 
   // add or remove the panel icon to match the show-indicator setting
@@ -121,7 +121,7 @@ export default class HatiExtension extends Extension {
       this._indicator = new Indicator(this.path, this._settings, () => {
         this.openPreferences();
       });
-      Main.panel.addToStatusArea("hati", this._indicator);
+      Main.panel.addToStatusArea("zoomer", this._indicator);
     } else if (!show && this._indicator) {
       this._indicator.destroy();
       this._indicator = null;
@@ -134,14 +134,14 @@ export default class HatiExtension extends Extension {
     }
 
     this._containerActor = new St.Widget({
-      style_class: "hati-container",
+      style_class: "zoomer-container",
       reactive: false,
       can_focus: false,
       layout_manager: new Clutter.BinLayout(),
     });
 
     this._canvas = new St.DrawingArea({
-      style_class: "hati-canvas",
+      style_class: "zoomer-canvas",
       reactive: false,
       can_focus: false,
       x_align: Clutter.ActorAlign.CENTER,
@@ -186,7 +186,12 @@ export default class HatiExtension extends Extension {
 
     this._refreshStyle();
 
-    global.stage.add_child(this._containerActor);
+    // registered as tracked chrome (not a raw stage child) so the ring
+    // stays visible above fullscreen windows (e.g. Brave / VSCode in F11)
+    Main.layoutManager.addChrome(this._containerActor, {
+      trackFullscreen: true,
+      affectsStruts: false,
+    });
 
     // start physics
     this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
@@ -214,7 +219,7 @@ export default class HatiExtension extends Extension {
         this._stageEventId = null;
       }
 
-      global.stage.remove_child(this._containerActor);
+      Main.layoutManager.removeChrome(this._containerActor);
       this._containerActor.destroy();
       this._containerActor = null;
 

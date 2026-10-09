@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="assets/hati_icon.svg" width="150" height="150" alt="Hati Icon">
-  <h1>Hati</h1>
+  <img src="assets/zoomer_icon.svg" width="150" height="150" alt="Zoomer Icon">
+  <h1>Zoomer</h1>
   <p><strong>Native cursor highlighter for GNOME Shell on Wayland.</strong></p>
 
   <a href="LICENSE">
@@ -15,7 +15,9 @@
 
 ## Overview
 
-**Hati** is a GNOME Shell extension designed to solve a specific problem: demonstrating software on Wayland. Traditional X11 overlay tools often fail or introduce lag on Wayland compositors. Hati integrates directly into the GNOME Shell rendering pipeline using GLSL shaders, ensuring zero latency and perfect frame synchronization.
+**Zoomer** is a GNOME Shell extension designed to solve a specific problem: demonstrating software on Wayland. Traditional X11 overlay tools often fail or introduce lag on Wayland compositors. Zoomer integrates directly into the GNOME Shell rendering pipeline using GLSL shaders, ensuring zero latency and perfect frame synchronization.
+
+> **Fork note:** Zoomer is an independent fork of [Hati](https://github.com/szymonwilczek/hati) by Szymon Wilczek. It uses its own extension UUID (`zoomer@Mehdi-Bahlaoui`) and settings path, so it is never auto-updated to — nor confused with — the upstream extension.
 
 It provides a highly customizable visual ring around your cursor, essential for:
 - **Teaching / Lectures**
@@ -39,23 +41,22 @@ https://github.com/user-attachments/assets/778d996f-08ca-45d9-92bc-cc9d4ac6312a
 
 ## Installation
 
-### Method 1: GNOME Extensions Website
+### Method 1: Release zip
 
-Install via GNOME Extensions: [Hati Cursor Highlighter](https://extensions.gnome.org/extension/9209/hati-cursor-highlighter/).
+Zoomer is intentionally **not** published on extensions.gnome.org under the upstream listing, so it can never be auto-updated back to Hati. Install from this repo instead.
 
-### Method 2: Manual Installation
-1. Download the latest release from [Releases](https://github.com/szymonwilczek/hati/releases).
+1. Download the latest release from [Releases](https://github.com/Mehdi-Bahlaoui/zoomer/releases).
 2. Install via CLI:
    ```bash
-   gnome-extensions install hati@szymonwilczek.github.io.zip
+   gnome-extensions install zoomer@Mehdi-Bahlaoui.zip
    ```
 3. Restart GNOME Shell (Log out/in on Wayland).
 4. Enable the extension:
    ```bash
-   gnome-extensions enable hati@szymonwilczek.github.io
+   gnome-extensions enable zoomer@Mehdi-Bahlaoui
    ```
 
-### Method 3: Build from Source
+### Method 2: Build from Source
 
 You'll need following dependencies: 
 - `make`
@@ -63,8 +64,8 @@ You'll need following dependencies:
 
 ```bash
 # Clone repository
-git clone https://github.com/szymonwilczek/hati.git
-cd hati
+git clone https://github.com/Mehdi-Bahlaoui/zoomer.git
+cd zoomer
 
 # Build and install
 make install

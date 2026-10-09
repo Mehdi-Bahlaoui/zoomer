@@ -2,6 +2,7 @@
 
 import GLib from "gi://GLib";
 import St from "gi://St";
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import {
   getShapeValue,
   getActivationMasks,
@@ -38,6 +39,18 @@ export class Spotlight {
     this._animDuration = 0;
 
     this._signalIds = [];
+
+    // keep the overlay fitted when monitors change or a window goes
+    // fullscreen (kept separate from settings ids: different objects)
+    this._uiSignals = [];
+    this._uiSignals.push([
+      Main.layoutManager,
+      Main.layoutManager.connect("monitors-changed", () => this.syncSize()),
+    ]);
+    this._uiSignals.push([
+      global.display,
+      global.display.connect("in-fullscreen-changed", () => this.syncSize()),
+    ]);
 
     this._signalIds.push(
       this._settings.connect("changed::spotlight-enabled", () => {
@@ -220,7 +233,7 @@ export class Spotlight {
     this._startTransition(0.0, 1.0);
 
     this._actor = new St.Widget({
-      style_class: "hati-spotlight-overlay",
+      style_class: "zoomer-spotlight-overlay",
       reactive: false,
       can_focus: false,
       x: 0,
@@ -235,8 +248,12 @@ export class Spotlight {
 
     this._updateUniforms();
 
-    global.stage.add_child(this._actor);
-    global.stage.set_child_above_sibling(this._actor, null);
+    // tracked chrome (not a raw stage child) so the overlay stays above
+    // fullscreen windows such as Brave / VSCode in F11
+    Main.layoutManager.addChrome(this._actor, {
+      trackFullscreen: true,
+      affectsStruts: false,
+    });
   }
 
   deactivate() {
@@ -248,8 +265,24 @@ export class Spotlight {
     this._startTransition(this._progress(), 0.0);
   }
 
+  /**
+   * Re-fit the overlay to the stage after fullscreen or monitor changes.
+   */
+  syncSize() {
+    if (!this._actor) return;
+    this._actor.set_size(global.stage.width, global.stage.height);
+    this._updateUniforms();
+  }
+
   _destroyActor() {
     if (this._actor) {
+      try {
+        Main.layoutManager.removeChrome(this._actor);
+      } catch (e) {
+        // already untracked; fall through to manual unparent
+      }
+      if (this._actor.get_parent())
+        this._actor.get_parent().remove_child(this._actor);
       this._actor.destroy();
       this._actor = null;
     }
@@ -263,6 +296,17 @@ export class Spotlight {
         this._settings.disconnect(id);
       }
       this._signalIds = null;
+    }
+
+    if (this._uiSignals) {
+      for (const [obj, id] of this._uiSignals) {
+        try {
+          obj.disconnect(id);
+        } catch (e) {
+          // already disconnected
+        }
+      }
+      this._uiSignals = null;
     }
 
     this._active = false;

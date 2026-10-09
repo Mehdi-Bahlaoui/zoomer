@@ -134,7 +134,7 @@ export class SceneCloner {
         }
       }
     } catch (e) {
-      console.log(`[Hati SceneCloner] bgManagers failed: ${e}`);
+      console.log(`[Zoomer SceneCloner] bgManagers failed: ${e}`);
     }
 
     // fallback to backgroundGroup
@@ -153,7 +153,7 @@ export class SceneCloner {
         }
       }
     } catch (e) {
-      console.log(`[Hati SceneCloner] backgroundGroup failed: ${e}`);
+      console.log(`[Zoomer SceneCloner] backgroundGroup failed: ${e}`);
     }
   }
 
@@ -182,7 +182,7 @@ export class SceneCloner {
         ? global.compositor.get_window_actors()
         : global.get_window_actors();
     } catch (e) {
-      console.log(`[Hati SceneCloner] Failed to get window actors: ${e}`);
+      console.log(`[Zoomer SceneCloner] Failed to get window actors: ${e}`);
       return;
     }
 
@@ -217,7 +217,7 @@ export class SceneCloner {
         this._windowClones.push(clone);
       } catch (e) {
         // skip windows that fail to clone
-        console.log(`[Hati SceneCloner] Skipping window: ${e.message}`);
+        console.log(`[Zoomer SceneCloner] Skipping window: ${e.message}`);
       }
     }
   }

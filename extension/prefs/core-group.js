@@ -10,7 +10,7 @@ export function buildCoreGroup(settings) {
   });
 
   const enableRow = new Adw.SwitchRow({
-    title: "Enable Hati",
+    title: "Enable Zoomer",
     subtitle: "Show cursor highlight",
   });
   settings.bind("enabled", enableRow, "active", Gio.SettingsBindFlags.DEFAULT);
@@ -30,7 +30,7 @@ export function buildCoreGroup(settings) {
 
   const indicatorRow = new Adw.SwitchRow({
     title: "Show Panel Icon",
-    subtitle: "Display the Hati icon in the top bar",
+    subtitle: "Display the Zoomer icon in the top bar",
   });
   settings.bind(
     "show-indicator",

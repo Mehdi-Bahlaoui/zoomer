@@ -16,7 +16,7 @@ import {
   buildSpotlightTransitionGroup,
 } from "./prefs/spotlight-group.js";
 
-export default class HatiPreferences extends ExtensionPreferences {
+export default class ZoomerPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
     const settings = this.getSettings();
 
