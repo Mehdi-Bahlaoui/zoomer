@@ -1,5 +1,49 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import Clutter from "gi://Clutter";
+
+// modifier name -> accepted masks. A modifier counts as held when *any* of its
+// bits is set: Super is reported as MOD4_MASK by global.get_pointer(), while
+// SUPER_MASK is a virtual modifier that is not set on every backend.
+const MODIFIER_MASKS = [
+  ["Shift", Clutter.ModifierType.SHIFT_MASK],
+  ["Control", Clutter.ModifierType.CONTROL_MASK],
+  ["Alt", Clutter.ModifierType.MOD1_MASK],
+  ["Super", Clutter.ModifierType.MOD4_MASK | Clutter.ModifierType.SUPER_MASK],
+];
+
+/**
+ * Resolves an activation setting into the list of modifiers it requires.
+ * Combinations are "+"-joined, e.g. 'Control_L+Alt_L+Super_L'.
+ *
+ * Note the _L/_R suffixes are cosmetic: Clutter's modifier mask has no
+ * left/right bits, so 'Control_L' and 'Control_R' resolve identically.
+ * @param {string} keyString - value from magnifier-key / spotlight-key
+ * @returns {number[]} - one mask per required modifier, empty when unrecognised
+ */
+export function getActivationMasks(keyString) {
+  const masks = [];
+
+  for (const part of (keyString || "").split("+")) {
+    const entry = MODIFIER_MASKS.find(([name]) => part.includes(name));
+    if (entry && !masks.includes(entry[1])) masks.push(entry[1]);
+  }
+
+  return masks;
+}
+
+/**
+ * True when every modifier required by the activation is currently held.
+ * Extra modifiers are ignored, so a 3-key combo also satisfies its 2-key prefix.
+ * @param {number} mask - live modifier mask from global.get_pointer()
+ * @param {number[]} requiredMasks - masks from getActivationMasks()
+ */
+export function isActivationHeld(mask, requiredMasks) {
+  return (
+    requiredMasks.length > 0 && requiredMasks.every((m) => (mask & m) !== 0)
+  );
+}
+
 /**
  * Maps a shape name string to a shader float value
  * @param {string} shapeString - 'circle', 'squircle', 'square'

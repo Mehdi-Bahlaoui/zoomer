@@ -11,8 +11,10 @@ import { buildPhysicsGroup } from "./prefs/physics-group.js";
 import { buildInteractionGroup } from "./prefs/interaction-group.js";
 import { buildIdleGroup } from "./prefs/idle-group.js";
 import { buildMagnifierGroup } from "./prefs/magnifier-group.js";
-import { buildSpotlightGroup } from "./prefs/spotlight-group.js";
-import { PresetsPage } from "./prefs/presets-page.js";
+import {
+  buildSpotlightGroup,
+  buildSpotlightTransitionGroup,
+} from "./prefs/spotlight-group.js";
 
 export default class HatiPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
@@ -33,9 +35,16 @@ export default class HatiPreferences extends ExtensionPreferences {
     });
     behaviorPage.add(buildPhysicsGroup(settings));
     behaviorPage.add(buildInteractionGroup(settings));
-    behaviorPage.add(buildSpotlightGroup(settings));
     behaviorPage.add(buildIdleGroup(settings));
     window.add(behaviorPage);
+
+    const spotlightPage = new Adw.PreferencesPage({
+      title: "Spotlight",
+      icon_name: "display-brightness-symbolic",
+    });
+    spotlightPage.add(buildSpotlightGroup(settings));
+    spotlightPage.add(buildSpotlightTransitionGroup(settings));
+    window.add(spotlightPage);
 
     const magnifierPage = new Adw.PreferencesPage({
       title: "Magnifier",
@@ -43,8 +52,5 @@ export default class HatiPreferences extends ExtensionPreferences {
     });
     magnifierPage.add(buildMagnifierGroup(settings));
     window.add(magnifierPage);
-
-    const presetsPage = new PresetsPage(settings);
-    window.add(presetsPage);
   }
 }

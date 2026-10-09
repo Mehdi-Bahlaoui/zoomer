@@ -16,6 +16,30 @@ export function buildCoreGroup(settings) {
   settings.bind("enabled", enableRow, "active", Gio.SettingsBindFlags.DEFAULT);
   group.add(enableRow);
 
+  const ringRow = new Adw.SwitchRow({
+    title: "Show Highlight Ring",
+    subtitle: "Draw the ring around the cursor; magnifier and spotlight are unaffected",
+  });
+  settings.bind(
+    "highlight-ring",
+    ringRow,
+    "active",
+    Gio.SettingsBindFlags.DEFAULT,
+  );
+  group.add(ringRow);
+
+  const indicatorRow = new Adw.SwitchRow({
+    title: "Show Panel Icon",
+    subtitle: "Display the Hati icon in the top bar",
+  });
+  settings.bind(
+    "show-indicator",
+    indicatorRow,
+    "active",
+    Gio.SettingsBindFlags.DEFAULT,
+  );
+  group.add(indicatorRow);
+
   const shapeModel = new Gtk.StringList();
   shapeModel.append("Circle");
   shapeModel.append("Squircle");

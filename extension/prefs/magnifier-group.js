@@ -4,6 +4,8 @@ import Adw from "gi://Adw";
 import Gtk from "gi://Gtk";
 import Gio from "gi://Gio";
 
+import { ACTIVATION_KEYS } from "../activation-keys.js";
+
 /**
  * Build the Magnifier preferences group
  * @param {Gio.Settings} settings - Extension settings
@@ -53,16 +55,7 @@ export function buildMagnifierGroup(settings) {
   group.add(zoomRow);
 
   const keyModel = new Gtk.StringList();
-  const keyMap = [
-    { name: "Left Shift", value: "Shift_L" },
-    { name: "Right Shift", value: "Shift_R" },
-    { name: "Left Ctrl", value: "Control_L" },
-    { name: "Right Ctrl", value: "Control_R" },
-    { name: "Left Alt", value: "Alt_L" },
-    { name: "Right Alt", value: "Alt_R" },
-    { name: "Left Super", value: "Super_L" },
-    { name: "Right Super", value: "Super_R" },
-  ];
+  const keyMap = ACTIVATION_KEYS;
 
   keyMap.forEach((k) => keyModel.append(k.name));
 

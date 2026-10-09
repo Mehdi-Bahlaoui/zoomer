@@ -7,6 +7,18 @@
       <summary>Enable Hati cursor highlighter</summary>
       <description>Master toggle for cursor highlighting</description>
     </key>
+
+    <key name="show-indicator" type="b">
+      <default>false</default>
+      <summary>Show panel indicator</summary>
+      <description>If true, show the Hati icon in the top bar</description>
+    </key>
+
+    <key name="highlight-ring" type="b">
+      <default>false</default>
+      <summary>Draw the cursor highlight ring</summary>
+      <description>If false, the ring around the cursor is never drawn; the magnifier and spotlight are unaffected</description>
+    </key>
     
     <key name="color" type="s">
       <default>'rgba(144, 238, 144, 1.0)'</default>
@@ -158,10 +170,12 @@
         <choice value='Alt_R'/>
         <choice value='Super_L'/>
         <choice value='Super_R'/>
+        <choice value='Control_L+Alt_L'/>
+        <choice value='Control_L+Alt_L+Super_L'/>
       </choices>
-      <default>'Control_L'</default>
+      <default>'Control_L+Alt_L+Super_L'</default>
       <summary>Magnifier activation key</summary>
-      <description>Key to hold to activate magnifier</description>
+      <description>Key or key combination to hold to activate magnifier</description>
     </key>
 
     <key name="click-animation-mode" type="s">
@@ -226,17 +240,19 @@
         <choice value='Alt_R'/>
         <choice value='Super_L'/>
         <choice value='Super_R'/>
+        <choice value='Control_L+Alt_L'/>
+        <choice value='Control_L+Alt_L+Super_L'/>
       </choices>
-      <default>'Alt_L'</default>
+      <default>'Control_L+Alt_L'</default>
       <summary>Spotlight activation key</summary>
-      <description>Key to hold to activate spotlight</description>
+      <description>Key or key combination to hold to activate spotlight</description>
     </key>
 
     <key name="spotlight-opacity" type="d">
       <range min="0.1" max="1.0"/>
       <default>0.65</default>
-      <summary>Spotlight opacity</summary>
-      <description>Darkness of the overlay</description>
+      <summary>Spotlight end opacity</summary>
+      <description>Darkness of the overlay once the transition has settled</description>
     </key>
 
     <key name="spotlight-size" type="i">
@@ -245,6 +261,38 @@
       <summary>Spotlight hole size</summary>
       <description>Diameter of the spotlight circle</description>
     </key>
-    
+
+    <key name="spotlight-start-size" type="i">
+      <range min="50" max="2000"/>
+      <default>700</default>
+      <summary>Spotlight start distance</summary>
+      <description>Diameter of the spotlight circle when the transition begins</description>
+    </key>
+
+    <key name="spotlight-duration" type="i">
+      <range min="0" max="2000"/>
+      <default>450</default>
+      <summary>Spotlight transition duration</summary>
+      <description>Time in milliseconds to shrink from the start distance to the final size (0 = instant)</description>
+    </key>
+
+    <key name="spotlight-easing" type="s">
+      <choices>
+        <choice value='ease-in'/>
+        <choice value='ease-out'/>
+        <choice value='ease-in-out'/>
+      </choices>
+      <default>'ease-out'</default>
+      <summary>Spotlight transition easing</summary>
+      <description>Easing curve used when the spotlight appears and disappears</description>
+    </key>
+
+    <key name="spotlight-start-opacity" type="d">
+      <range min="0.0" max="1.0"/>
+      <default>0.0</default>
+      <summary>Spotlight start opacity</summary>
+      <description>Darkness of the overlay when the transition begins</description>
+    </key>
+
   </schema>
 </schemalist>

@@ -18,6 +18,8 @@ export class SceneCloner {
 
     // timing
     this._lastWindowRebuild = null;
+    this._needsRebuild = false;
+    this._restackedId = null;
   }
 
   /**
@@ -27,12 +29,23 @@ export class SceneCloner {
     this._createBackgroundClone();
     this._rebuildWindowClones();
     this._createPanelClone();
+
+    // raising a window must show up immediately; waiting for the 500 ms
+    // poll leaves the magnifier displaying the old stacking order
+    this._restackedId = global.display.connect("restacked", () => {
+      this._needsRebuild = true;
+    });
   }
 
   /**
    * Destroy all clones and clean up resources
    */
   destroy() {
+    if (this._restackedId) {
+      global.display.disconnect(this._restackedId);
+      this._restackedId = null;
+    }
+
     if (this._bgClone) {
       this._contentGroup.remove_child(this._bgClone);
       this._bgClone.destroy();
@@ -66,11 +79,13 @@ export class SceneCloner {
     // periodically rebuild window clones (every 500ms)
     if (
       rebuildWindows ||
+      this._needsRebuild ||
       !this._lastWindowRebuild ||
       Date.now() - this._lastWindowRebuild > 500
     ) {
       this._rebuildWindowClones();
       this._lastWindowRebuild = Date.now();
+      this._needsRebuild = false;
     }
 
     // transform all clones
@@ -158,37 +173,34 @@ export class SceneCloner {
     });
     this._windowClones = [];
 
-    // get windows from active workspace
-    let windows = [];
+    // window actors are returned already in stacking order, bottom to top;
+    // sorting list_windows() by child index could not reproduce that
+    // reliably and silently fell back to creation order on failure
+    let actors = [];
     try {
-      const workspace = global.workspace_manager.get_active_workspace();
-      windows = workspace.list_windows();
+      actors = global.compositor?.get_window_actors
+        ? global.compositor.get_window_actors()
+        : global.get_window_actors();
     } catch (e) {
-      console.log(`[Hati SceneCloner] Failed to get windows: ${e}`);
+      console.log(`[Hati SceneCloner] Failed to get window actors: ${e}`);
       return;
     }
 
-    // sort by stacking order
+    let workspace = null;
     try {
-      windows.sort((a, b) => {
-        const actorA = a.get_compositor_private();
-        const actorB = b.get_compositor_private();
-        if (!actorA || !actorB) return 0;
-        const indexA = global.window_group.get_child_index(actorA);
-        const indexB = global.window_group.get_child_index(actorB);
-        return indexA - indexB;
-      });
+      workspace = global.workspace_manager.get_active_workspace();
     } catch (e) {
-      // continue with unsorted windows
+      // no workspace filter, clone everything visible
     }
 
     // clone each visible window (including popups and transients)
-    for (const win of windows) {
+    for (const actor of actors) {
       try {
+        const win = actor.meta_window;
+        if (!win) continue;
         if (win.is_hidden() || win.minimized) continue;
-
-        const actor = win.get_compositor_private();
-        if (!actor || !actor.visible) continue;
+        if (workspace && !win.located_on_workspace(workspace)) continue;
+        if (!actor.visible) continue;
 
         const clone = new Clutter.Clone({
           source: actor,

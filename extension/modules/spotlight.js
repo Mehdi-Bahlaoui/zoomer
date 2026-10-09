@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import Clutter from "gi://Clutter";
+import GLib from "gi://GLib";
 import St from "gi://St";
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
-import { getShapeValue } from "../utils.js";
+import {
+  getShapeValue,
+  getActivationMasks,
+  isActivationHeld,
+} from "../utils.js";
 import { SpotlightEffect } from "../shaders/spotlight-effect.js";
 
 export class Spotlight {
@@ -13,6 +16,10 @@ export class Spotlight {
     this._key = settings.get_string("spotlight-key");
     this._opacity = settings.get_double("spotlight-opacity");
     this._size = settings.get_int("spotlight-size");
+    this._startSize = settings.get_int("spotlight-start-size");
+    this._startOpacity = settings.get_double("spotlight-start-opacity");
+    this._duration = settings.get_int("spotlight-duration");
+    this._easing = settings.get_string("spotlight-easing");
     this._shape = getShapeValue(settings.get_string("shape"));
     this._rotation = settings.get_int("rotation");
     this._cornerRadius = settings.get_int("corner-radius");
@@ -21,6 +28,14 @@ export class Spotlight {
     this._effect = null;
     this._x = 0;
     this._y = 0;
+
+    // transition state: progress 0.0 = start distance / start opacity,
+    // 1.0 = settled at the configured size / opacity
+    this._exiting = false;
+    this._animFrom = 0.0;
+    this._animTo = 0.0;
+    this._animStart = 0;
+    this._animDuration = 0;
 
     this._signalIds = [];
 
@@ -38,68 +53,133 @@ export class Spotlight {
     this._signalIds.push(
       this._settings.connect("changed::spotlight-opacity", () => {
         this._opacity = this._settings.get_double("spotlight-opacity");
-        if (this._active && this._effect) {
-          this._updateUniforms();
-        }
+        this._updateUniforms();
       }),
     );
     this._signalIds.push(
       this._settings.connect("changed::spotlight-size", () => {
         this._size = this._settings.get_int("spotlight-size");
-        if (this._active && this._effect) {
-          this._updateUniforms();
-        }
+        this._updateUniforms();
+      }),
+    );
+    this._signalIds.push(
+      this._settings.connect("changed::spotlight-start-size", () => {
+        this._startSize = this._settings.get_int("spotlight-start-size");
+        this._updateUniforms();
+      }),
+    );
+    this._signalIds.push(
+      this._settings.connect("changed::spotlight-start-opacity", () => {
+        this._startOpacity = this._settings.get_double(
+          "spotlight-start-opacity",
+        );
+        this._updateUniforms();
+      }),
+    );
+    this._signalIds.push(
+      this._settings.connect("changed::spotlight-duration", () => {
+        this._duration = this._settings.get_int("spotlight-duration");
+      }),
+    );
+    this._signalIds.push(
+      this._settings.connect("changed::spotlight-easing", () => {
+        this._easing = this._settings.get_string("spotlight-easing");
       }),
     );
 
     this._signalIds.push(
       this._settings.connect("changed::shape", () => {
         this._shape = getShapeValue(this._settings.get_string("shape"));
-        if (this._active && this._effect) {
-          this._updateUniforms();
-        }
+        this._updateUniforms();
       }),
     );
     this._signalIds.push(
       this._settings.connect("changed::rotation", () => {
         this._rotation = this._settings.get_int("rotation");
-        if (this._active && this._effect) {
-          this._updateUniforms();
-        }
+        this._updateUniforms();
       }),
     );
     this._signalIds.push(
       this._settings.connect("changed::corner-radius", () => {
         this._cornerRadius = this._settings.get_int("corner-radius");
-        if (this._active && this._effect) {
-          this._updateUniforms();
-        }
+        this._updateUniforms();
       }),
     );
   }
 
   update(x, y) {
-    if (!this._enabled) return;
-
     this._x = x;
     this._y = y;
 
-    if (this._active && this._effect) {
-      this._updateUniforms();
+    if (!this._actor || !this._effect) return;
+
+    // the fade-out ran to completion, tear the overlay down
+    if (this._exiting && this._progress() <= 0.0) {
+      this._destroyActor();
+      return;
     }
+
+    this._updateUniforms();
+  }
+
+  /**
+   * Retarget the transition, keeping a constant speed when interrupted mid-way.
+   * @param {number} from - current progress
+   * @param {number} to - 1.0 to settle in, 0.0 to back out
+   */
+  _startTransition(from, to) {
+    this._animFrom = from;
+    this._animTo = to;
+    this._animStart = GLib.get_monotonic_time();
+    // ms -> µs, shortened to the distance actually left to travel
+    this._animDuration = this._duration * 1000 * Math.abs(to - from);
+  }
+
+  /**
+   * Eased transition progress, 0.0 (start distance) to 1.0 (settled).
+   */
+  _progress() {
+    if (this._animDuration <= 0) return this._animTo;
+
+    const elapsed = GLib.get_monotonic_time() - this._animStart;
+    const t = Math.min(1.0, Math.max(0.0, elapsed / this._animDuration));
+    let eased;
+    switch (this._easing) {
+      case "ease-in":
+        eased = t * t;
+        break;
+      case "ease-in-out":
+        eased =
+          t < 0.5
+            ? 2.0 * t * t
+            : 1.0 - Math.pow(-2.0 * t + 2.0, 2) / 2.0;
+        break;
+      case "ease-out":
+      default:
+        eased = 1.0 - (1.0 - t) * (1.0 - t);
+        break;
+    }
+
+    return this._animFrom + (this._animTo - this._animFrom) * eased;
   }
 
   _updateUniforms() {
     if (!this._effect) return;
 
-    const maxRadius = this._size / 2.0;
-    const radiusPx = (this._cornerRadius / 50.0) * maxRadius;
+    const p = this._progress();
+    const size = this._startSize + (this._size - this._startSize) * p;
+    const opacity =
+      this._startOpacity + (this._opacity - this._startOpacity) * p;
+
+    // scale the corner radius with the animated size so the squircle keeps
+    // its proportions while it shrinks
+    const radiusPx = (this._cornerRadius / 50.0) * (size / 2.0);
 
     this._effect.updateUniforms({
       x: this._x,
       y: this._y,
-      size: this._size,
-      opacity: this._opacity,
+      size,
+      opacity,
       shape: this._shape,
       radius: radiusPx,
       rotation: this._rotation,
@@ -111,19 +191,7 @@ export class Spotlight {
   pollActivation(mask) {
     if (!this._enabled) return;
 
-    const keyMap = {
-      Shift_L: Clutter.ModifierType.SHIFT_MASK,
-      Shift_R: Clutter.ModifierType.SHIFT_MASK,
-      Control_L: Clutter.ModifierType.CONTROL_MASK,
-      Control_R: Clutter.ModifierType.CONTROL_MASK,
-      Alt_L: Clutter.ModifierType.MOD1_MASK,
-      Alt_R: Clutter.ModifierType.MOD1_MASK,
-      Super_L: Clutter.ModifierType.MOD4_MASK,
-      Super_R: Clutter.ModifierType.MOD4_MASK,
-    };
-
-    const targetMask = keyMap[this._key];
-    const isPressed = (mask & targetMask) !== 0;
+    const isPressed = isActivationHeld(mask, getActivationMasks(this._key));
 
     if (isPressed && !this._active) {
       this.activate();
@@ -133,13 +201,23 @@ export class Spotlight {
   }
 
   activate() {
-    if (this._actor) return;
-
     this._shape = getShapeValue(this._settings.get_string("shape"));
     this._rotation = this._settings.get_int("rotation");
     this._cornerRadius = this._settings.get_int("corner-radius");
 
     this._active = true;
+
+    // reverse an in-flight fade-out rather than stacking a second overlay
+    if (this._actor) {
+      const from = this._progress();
+      this._exiting = false;
+      this._startTransition(from, 1.0);
+      this._updateUniforms();
+      return;
+    }
+
+    this._exiting = false;
+    this._startTransition(0.0, 1.0);
 
     this._actor = new St.Widget({
       style_class: "hati-spotlight-overlay",
@@ -149,7 +227,7 @@ export class Spotlight {
       y: 0,
       width: global.stage.width,
       height: global.stage.height,
-      opacity: 0,
+      opacity: 255,
     });
 
     this._effect = new SpotlightEffect();
@@ -159,30 +237,24 @@ export class Spotlight {
 
     global.stage.add_child(this._actor);
     global.stage.set_child_above_sibling(this._actor, null);
-
-    this._actor.ease({
-      opacity: 255,
-      duration: 250,
-      mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-    });
   }
 
   deactivate() {
-    if (!this._actor) return;
-
     this._active = false;
-    const actor = this._actor;
-    this._actor = null;
-    this._effect = null;
 
-    actor.ease({
-      opacity: 0,
-      duration: 250,
-      mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-      onComplete: () => {
-        actor.destroy();
-      },
-    });
+    if (!this._actor || this._exiting) return;
+
+    this._exiting = true;
+    this._startTransition(this._progress(), 0.0);
+  }
+
+  _destroyActor() {
+    if (this._actor) {
+      this._actor.destroy();
+      this._actor = null;
+    }
+    this._effect = null;
+    this._exiting = false;
   }
 
   destroy() {
@@ -193,11 +265,8 @@ export class Spotlight {
       this._signalIds = null;
     }
 
-    if (this._actor) {
-      this._actor.destroy();
-      this._actor = null;
-    }
-    this._effect = null;
+    this._active = false;
+    this._destroyActor();
     this._settings = null;
   }
 }

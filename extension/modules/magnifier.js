@@ -6,6 +6,8 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import { MagnifierClipEffect } from "../shaders/magnifier-clip-effect.js";
 import { SceneCloner } from "./scene-cloner.js";
+import { isCombination } from "../activation-keys.js";
+import { getActivationMasks, isActivationHeld } from "../utils.js";
 
 // key symbol mapping
 const KEY_MAP = {
@@ -86,15 +88,10 @@ export class Magnifier {
   }
 
   /**
-   * Get activation mask based on settings
+   * Get the modifiers required for activation, based on settings
    */
-  getActivationMask() {
-    const key = this._settings.get_string("magnifier-key") || "Shift_L";
-    if (key.includes("Shift")) return Clutter.ModifierType.SHIFT_MASK;
-    if (key.includes("Control")) return Clutter.ModifierType.CONTROL_MASK;
-    if (key.includes("Alt")) return Clutter.ModifierType.MOD1_MASK;
-    if (key.includes("Super")) return Clutter.ModifierType.SUPER_MASK;
-    return Clutter.ModifierType.SHIFT_MASK;
+  getActivationMasks() {
+    return getActivationMasks(this._settings.get_string("magnifier-key"));
   }
 
   /**
@@ -112,6 +109,13 @@ export class Magnifier {
 
     const activationKey =
       this._settings.get_string("magnifier-key") || "Shift_L";
+
+    // combinations can't be tracked from a single key symbol; pollActivation
+    // handles them off the live modifier mask instead
+    if (isCombination(activationKey)) {
+      return false;
+    }
+
     const keyName = event.get_key_symbol();
     const targetKey = KEY_MAP[activationKey] || Clutter.KEY_Shift_L;
 
@@ -144,8 +148,8 @@ export class Magnifier {
       return;
     }
 
-    const activationMask = this.getActivationMask();
-    const isPressed = (mask & activationMask) !== 0;
+    const activationMasks = this.getActivationMasks();
+    const isPressed = isActivationHeld(mask, activationMasks);
 
     if (isPressed && !this._active) {
       this.activate();

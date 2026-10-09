@@ -68,10 +68,7 @@ export default class HatiExtension extends Extension {
     );
 
     // indicator
-    this._indicator = new Indicator(this.path, this._settings, () => {
-      this.openPreferences();
-    });
-    Main.panel.addToStatusArea("hati", this._indicator);
+    this._updateIndicator();
 
     // only proceed if enabled
     if (!this._settings.get_boolean("enabled")) {
@@ -114,6 +111,21 @@ export default class HatiExtension extends Extension {
     }
 
     console.log("[Hati] Disabled successfully");
+  }
+
+  // add or remove the panel icon to match the show-indicator setting
+  _updateIndicator() {
+    const show = this._settings.get_boolean("show-indicator");
+
+    if (show && !this._indicator) {
+      this._indicator = new Indicator(this.path, this._settings, () => {
+        this.openPreferences();
+      });
+      Main.panel.addToStatusArea("hati", this._indicator);
+    } else if (!show && this._indicator) {
+      this._indicator.destroy();
+      this._indicator = null;
+    }
   }
 
   _createHighlightActor() {
@@ -169,6 +181,8 @@ export default class HatiExtension extends Extension {
     );
 
     this._spotlight = new Spotlight(this._settings);
+
+    this._highlightRing = this._settings.get_boolean("highlight-ring");
 
     this._refreshStyle();
 
@@ -266,7 +280,9 @@ export default class HatiExtension extends Extension {
     const rightPressed = (mask & Clutter.ModifierType.BUTTON3_MASK) !== 0;
     const anyPressed = leftPressed || rightPressed;
 
-    if (this._autoHide) {
+    // auto-hide animates the container's opacity, so it must stay out of the
+    // way while the ring is switched off
+    if (this._autoHide && this._highlightRing) {
       this._autoHide.update(curX, curY, anyPressed, 16);
     }
 
@@ -335,7 +351,12 @@ export default class HatiExtension extends Extension {
       curY - containerHeight / 2,
     );
 
-    if (this._rgbEnabled && this._drawSettings && this._drawSettings.color) {
+    if (
+      this._rgbEnabled &&
+      this._highlightRing &&
+      this._drawSettings &&
+      this._drawSettings.color
+    ) {
       const now = GLib.get_monotonic_time() / 1000; // ms
       const speed = this._rgbSpeed || 2.0;
       const hue = (now * speed * 0.1) % 360;
@@ -361,6 +382,11 @@ export default class HatiExtension extends Extension {
   }
 
   _onSettingsChanged(key) {
+    if (key === "show-indicator") {
+      this._updateIndicator();
+      return;
+    }
+
     if (key === "enabled") {
       this._toggleHighlight();
       return;
@@ -387,7 +413,12 @@ export default class HatiExtension extends Extension {
     if (key === "rgb-speed") {
       this._rgbSpeed = this._settings.get_double("rgb-speed");
     }
-
+    if (key === "highlight-ring") {
+      this._highlightRing = this._settings.get_boolean("highlight-ring");
+      if (this._autoHide) {
+        this._autoHide.reset();
+      }
+    }
     this._refreshStyle();
   }
 
@@ -407,6 +438,7 @@ export default class HatiExtension extends Extension {
     this._canvas.queue_repaint();
 
     this._containerActor.set_opacity(255);
+    this._containerActor.visible = this._highlightRing;
   }
 
   _drawHighlight(area) {

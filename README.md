@@ -35,7 +35,7 @@ https://github.com/user-attachments/assets/778d996f-08ca-45d9-92bc-cc9d4ac6312a
 | **Visuals** | Dual-ring design (Solid/Dashed), Corner Radius (Squircle/Circle), dynamic Glow effects. |
 | **Interaction** | Visual feedback for clicks: **Pulse**, **Ripple**, **Glow Burst**. Distinct Left/Right click colors. |
 | **Utilities** | **Spotlight Mode** (dim screen except cursor), **GPU Magnifier** (instant zoom). Customizable shortcuts. |
-| **Config** | Changes apply instantly. **Shareable Presets** (Import/Export JSON). Native GTK4 preferences window. |
+| **Config** | Changes apply instantly through a native GTK4 preferences window. |
 
 ## Installation
 
@@ -83,7 +83,6 @@ Settings can be accessed via the **Extensions** app or by right-clicking the ext
 - **Appearance:** Shape (Circle/Square), Size, Colors, Opacity, Border Weight.
 - **Behavior:** Auto-hide timeout, Inertia physics sliders.
 - **Utilities:** Spotlight configuration, Magnifier zoom level & keys.
-- **Presets:** Built-in collections, **Import/Export** functionality to share configs.
 
 ## Contributing
 
