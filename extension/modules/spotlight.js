@@ -27,6 +27,7 @@ export class Spotlight {
     this._active = false;
     this._actor = null;
     this._effect = null;
+    this._unredirectDisabled = false;
     this._x = 0;
     this._y = 0;
 
@@ -251,11 +252,27 @@ export class Spotlight {
     this._updateUniforms();
 
     // tracked chrome (not a raw stage child) so the overlay stays above
-    // fullscreen windows such as Brave / VSCode in F11
+    // fullscreen windows such as Brave / VSCode in F11.
+    //
+    // trackFullscreen MUST stay off: it does not mean "draw over fullscreen
+    // windows". Shell's LayoutManager instead HIDES tracked actors whenever
+    // a fullscreen window is on the same monitor, and re-evaluates that on
+    // fullscreen, overview and popup transitions - which made the spotlight
+    // invisible on top of fullscreen apps and flicker on and off. Plain
+    // chrome already paints above fullscreen windows, they stay in
+    // window_group (only override-redirect popups go to top_window_group).
     Main.layoutManager.addChrome(this._actor, {
-      trackFullscreen: true,
+      trackFullscreen: false,
       affectsStruts: false,
     });
+
+    // A fullscreen window can be direct-scanned-out by Mutter: its buffer is
+    // presented straight to the display, bypassing the stage, so the overlay
+    // would sit "under" the app (and blink as scanout comes and goes).
+    // Disable unredirect while the overlay is up - exactly what Shell's own
+    // OSD and built-in magnifier do. Balanced in _destroyActor().
+    global.compositor.disable_unredirect();
+    this._unredirectDisabled = true;
   }
 
   deactivate() {
@@ -278,6 +295,11 @@ export class Spotlight {
   }
 
   _destroyActor() {
+    if (this._unredirectDisabled) {
+      this._unredirectDisabled = false;
+      global.compositor.enable_unredirect();
+    }
+
     if (this._actor) {
       try {
         Main.layoutManager.removeChrome(this._actor);

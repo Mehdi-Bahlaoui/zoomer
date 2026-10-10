@@ -164,12 +164,25 @@ export class Magnifier {
    * Track the lens as Shell chrome while it is on screen, untrack it once
    * it is gone. A persistently-tracked-but-hidden actor risks being
    * force-shown by Shell fullscreen/overview transitions.
+   *
+   * trackFullscreen MUST stay off: it does not mean "draw over fullscreen
+   * windows". Shell's LayoutManager instead HIDES tracked actors whenever
+   * a fullscreen window is on the same monitor, and re-evaluates that on
+   * fullscreen, overview and popup transitions - the lens vanished over
+   * fullscreen apps and flickered with the overview. Plain chrome already
+   * paints above fullscreen windows (they stay in window_group).
    */
   _ensureInChrome() {
     if (this._group && !this._inChrome) {
       Main.layoutManager.addChrome(this._group, {
-        trackFullscreen: true,
+        trackFullscreen: false,
       });
+      // A fullscreen window can be direct-scanned-out by Mutter: its buffer is
+      // presented straight to the display, bypassing the stage, so the lens
+      // would sit "under" the app (and blink as scanout comes and goes).
+      // Disable unredirect while the lens is up - exactly what Shell's own
+      // magnifier does. Balanced in _removeFromChrome().
+      global.compositor.disable_unredirect();
       this._inChrome = true;
     }
   }
@@ -177,6 +190,7 @@ export class Magnifier {
   _removeFromChrome() {
     if (this._group && this._inChrome) {
       Main.layoutManager.removeChrome(this._group);
+      global.compositor.enable_unredirect();
       this._inChrome = false;
     }
   }
