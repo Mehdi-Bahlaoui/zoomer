@@ -16,18 +16,6 @@ export function buildCoreGroup(settings) {
   settings.bind("enabled", enableRow, "active", Gio.SettingsBindFlags.DEFAULT);
   group.add(enableRow);
 
-  const ringRow = new Adw.SwitchRow({
-    title: "Show Highlight Ring",
-    subtitle: "Draw the ring around the cursor; magnifier and spotlight are unaffected",
-  });
-  settings.bind(
-    "highlight-ring",
-    ringRow,
-    "active",
-    Gio.SettingsBindFlags.DEFAULT,
-  );
-  group.add(ringRow);
-
   const indicatorRow = new Adw.SwitchRow({
     title: "Show Panel Icon",
     subtitle: "Display the Zoomer icon in the top bar",
@@ -65,8 +53,8 @@ export function buildCoreGroup(settings) {
   group.add(shapeRow);
 
   const sizeRow = new Adw.SpinRow({
-    title: "Size",
-    subtitle: "Highlight diameter",
+    title: "Lens Size",
+    subtitle: "Magnifier lens diameter",
     adjustment: new Gtk.Adjustment({
       lower: 40,
       upper: 200,

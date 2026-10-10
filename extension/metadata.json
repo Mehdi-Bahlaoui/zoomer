@@ -3,7 +3,7 @@
   "description": "Professional cursor highlighting for presentations and screen recording. (Fork of Hati, maintained independently — will not auto-update to upstream.)",
   "uuid": "zoomer@Mehdi-Bahlaoui",
   "shell-version": ["48", "49", "50", "51"],
-  "version": 6,
+  "version": 7,
   "url": "https://github.com/Mehdi-Bahlaoui/zoomer",
   "settings-schema": "org.gnome.shell.extensions.zoomer"
 }

@@ -245,14 +245,11 @@ export class Magnifier {
 
     const size = this._settings.get_int("size") || 100;
     const zoom = this._settings.get_double("magnifier-zoom") || 2.0;
-    const borderWeight = this._settings.get_int("border-weight") || 4;
     const cornerRadius = this._settings.get_int("corner-radius") || 50;
     const rotation = this._settings.get_int("rotation") || 0;
 
-    // calculate magnifier size
-    const outerHalf = size / 2;
-    const innerEdgeOfOuterRing = outerHalf - borderWeight;
-    const magnifierDiameter = Math.max(20, innerEdgeOfOuterRing * 2);
+    // lens diameter follows the shared size setting directly
+    const magnifierDiameter = Math.max(20, size);
     const maxRadiusPx = magnifierDiameter / 2;
     const magnifierRadius = Math.round(maxRadiusPx * (cornerRadius / 50.0));
 

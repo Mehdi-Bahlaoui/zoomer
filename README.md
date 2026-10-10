@@ -19,7 +19,7 @@
 
 > **Fork note:** Zoomer is an independent fork of [Hati](https://github.com/szymonwilczek/hati) by Szymon Wilczek. It uses its own extension UUID (`zoomer@Mehdi-Bahlaoui`) and settings path, so it is never auto-updated to — nor confused with — the upstream extension.
 
-It provides a highly customizable visual ring around your cursor, essential for:
+It provides instant cursor-centered utilities, essential for:
 - **Teaching / Lectures**
 - **Screen Recording**
 - **Live Demonstrations**
@@ -34,9 +34,8 @@ https://github.com/user-attachments/assets/778d996f-08ca-45d9-92bc-cc9d4ac6312a
 | Category | Description |
 |----------|-------------|
 | **Performance** | **Memory:** ~2-3MB. **Render Time:** ~4.7ms/frame. **Zero Copy** tracking. |
-| **Visuals** | Dual-ring design (Solid/Dashed), Corner Radius (Squircle/Circle), dynamic Glow effects. |
-| **Interaction** | Visual feedback for clicks: **Pulse**, **Ripple**, **Glow Burst**. Distinct Left/Right click colors. |
-| **Utilities** | **Spotlight Mode** (dim screen except cursor), **GPU Magnifier** (instant zoom). Customizable shortcuts. |
+| **Utilities** | **Spotlight Mode** (dim screen except cursor), **GPU Magnifier** (instant zoom). Customizable shortcuts. Both stay visible above fullscreen windows. |
+| **Lens** | Shared lens geometry: Size, Shape (Circle/Squircle/Square), Corner Radius, Rotation. Smooth inertia-based cursor tracking. |
 | **Config** | Changes apply instantly through a native GTK4 preferences window. |
 
 ## Installation
@@ -81,9 +80,10 @@ If you don't have `make` installed, you can use the provided script:
 
 Settings can be accessed via the **Extensions** app or by right-clicking the extension icon if enabled. 
 
-- **Appearance:** Shape (Circle/Square), Size, Colors, Opacity, Border Weight.
-- **Behavior:** Auto-hide timeout, Inertia physics sliders.
-- **Utilities:** Spotlight configuration, Magnifier zoom level & keys.
+- **Appearance:** Lens Size, Shape (Circle/Squircle/Square), Corner Radius, Rotation.
+- **Behavior:** Inertia physics sliders (cursor follow smoothing).
+- **Spotlight:** Activation key, hole size, shrink transition.
+- **Magnifier:** Activation key, zoom level.
 
 ## Contributing
 

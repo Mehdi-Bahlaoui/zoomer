@@ -1,69 +1,42 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import Clutter from "gi://Clutter";
-import Cogl from "gi://Cogl";
 import GLib from "gi://GLib";
-import GObject from "gi://GObject";
-import Meta from "gi://Meta";
-import Shell from "gi://Shell";
-import St from "gi://St";
-import Gio from "gi://Gio";
-import Cairo from "gi://cairo";
 
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
-import { parseColor, hslToRgb } from "./utils.js";
-import {
-  buildDrawSettings,
-  calculateCanvasSize,
-} from "./modules/style-manager.js";
 import { Physics } from "./modules/physics.js";
-import { Glow } from "./modules/glow.js";
-import { getAnimation } from "./animations/animations.js";
-import { renderHighlight } from "./modules/highlight-renderer.js";
 import { initShaders } from "./shaders/shaders.js";
 import { Magnifier } from "./modules/magnifier.js";
-import { AutoHide } from "./modules/auto-hide.js";
 import Indicator from "./modules/indicator.js";
 import { Spotlight } from "./modules/spotlight.js";
 
 export default class ZoomerExtension extends Extension {
   constructor(metadata) {
     super(metadata);
-    this._containerActor = null;
-    this._outerRing = null;
-    this._innerRing = null;
     this._settings = null;
     this._settingsChangedId = null;
     this._indicator = null;
+    this._physics = null;
+    this._magnifier = null;
+    this._spotlight = null;
+    this._tickId = 0;
+    this._stageEventId = null;
   }
 
   async enable() {
-    console.log("[Zoomer] Enabling cursor highlighter...");
+    console.log("[Zoomer] Enabling...");
 
     await initShaders(this.path);
 
     this._settings = this.getSettings();
-    this._interfaceSettings = new Gio.Settings({
-      schema_id: "org.gnome.desktop.interface",
-    });
 
     // watch for settings changes
     this._settingsChangedId = this._settings.connect(
       "changed",
       (settings, key) => {
         this._onSettingsChanged(key);
-      },
-    );
-
-    // watch for system accent changes
-    this._interfaceSettingsChangedId = this._interfaceSettings.connect(
-      "changed::accent-color",
-      () => {
-        if (this._settings.get_boolean("use-system-accent")) {
-          this._refreshStyle();
-        }
       },
     );
 
@@ -75,23 +48,20 @@ export default class ZoomerExtension extends Extension {
       return;
     }
 
-    this._rgbEnabled = this._settings.get_boolean("rgb-enabled");
-    this._rgbSpeed = this._settings.get_double("rgb-speed");
-
-    this._createHighlightActor();
+    this._start();
 
     console.log("[Zoomer] Enabled successfully");
   }
 
   disable() {
-    console.log("[Zoomer] Disabling cursor highlighter...");
+    console.log("[Zoomer] Disabling...");
 
     if (this._indicator) {
       this._indicator.destroy();
       this._indicator = null;
     }
 
-    this._removeHighlightActor();
+    this._stop();
 
     // cleanup settings
     if (this._settings) {
@@ -100,14 +70,6 @@ export default class ZoomerExtension extends Extension {
         this._settingsChangedId = null;
       }
       this._settings = null;
-    }
-
-    if (this._interfaceSettings) {
-      if (this._interfaceSettingsChangedId) {
-        this._interfaceSettings.disconnect(this._interfaceSettingsChangedId);
-        this._interfaceSettingsChangedId = null;
-      }
-      this._interfaceSettings = null;
     }
 
     console.log("[Zoomer] Disabled successfully");
@@ -128,45 +90,17 @@ export default class ZoomerExtension extends Extension {
     }
   }
 
-  _createHighlightActor() {
-    if (this._outerRing) {
-      return; // already created!
+  _start() {
+    if (this._physics) {
+      return; // already started
     }
 
-    this._containerActor = new St.Widget({
-      style_class: "zoomer-container",
-      reactive: false,
-      can_focus: false,
-      layout_manager: new Clutter.BinLayout(),
-    });
-
-    this._canvas = new St.DrawingArea({
-      style_class: "zoomer-canvas",
-      reactive: false,
-      can_focus: false,
-      x_align: Clutter.ActorAlign.CENTER,
-      y_align: Clutter.ActorAlign.CENTER,
-    });
-
-    this._canvas.connect("repaint", (area) => {
-      this._drawHighlight(area);
-    });
-
-    this._containerActor.add_child(this._canvas);
-
-    this._highlightActor = this._canvas;
-    this._outerRing = this._canvas;
-    this._innerRing = null;
-
     this._physics = new Physics(this._settings);
-    this._tickId = 0;
-
-    this._glow = new Glow(this._settings);
 
     this._magnifier = new Magnifier(this._settings, this._physics);
     this._magnifier.init();
 
-    // magnifier activation
+    // magnifier activation via held key
     this._stageEventId = global.stage.connect(
       "captured-event",
       (actor, event) => {
@@ -174,26 +108,9 @@ export default class ZoomerExtension extends Extension {
       },
     );
 
-    this._autoHide = new AutoHide(
-      this._settings,
-      this._highlightActor,
-      this._containerActor,
-    );
-
     this._spotlight = new Spotlight(this._settings);
 
-    this._highlightRing = this._settings.get_boolean("highlight-ring");
-
-    this._refreshStyle();
-
-    // registered as tracked chrome (not a raw stage child) so the ring
-    // stays visible above fullscreen windows (e.g. Brave / VSCode in F11)
-    Main.layoutManager.addChrome(this._containerActor, {
-      trackFullscreen: true,
-      affectsStruts: false,
-    });
-
-    // start physics
+    // cursor tracking loop feeding the magnifier and the spotlight
     this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
       this._tick();
       return GLib.SOURCE_CONTINUE;
@@ -206,51 +123,30 @@ export default class ZoomerExtension extends Extension {
     }
   }
 
-  _removeHighlightActor() {
-    if (this._containerActor) {
-      if (this._tickId) {
-        GLib.source_remove(this._tickId);
-        this._tickId = 0;
-      }
+  _stop() {
+    if (this._tickId) {
+      GLib.source_remove(this._tickId);
+      this._tickId = 0;
+    }
 
-      // disconnect stage event handler
-      if (this._stageEventId) {
-        global.stage.disconnect(this._stageEventId);
-        this._stageEventId = null;
-      }
+    // disconnect stage event handler
+    if (this._stageEventId) {
+      global.stage.disconnect(this._stageEventId);
+      this._stageEventId = null;
+    }
 
-      Main.layoutManager.removeChrome(this._containerActor);
-      this._containerActor.destroy();
-      this._containerActor = null;
+    if (this._magnifier) {
+      this._magnifier.destroy();
+      this._magnifier = null;
+    }
 
-      if (this._magnifier) {
-        this._magnifier.destroy();
-        this._magnifier = null;
-      }
+    if (this._spotlight) {
+      this._spotlight.destroy();
+      this._spotlight = null;
+    }
 
-      if (this._spotlight) {
-        this._spotlight.destroy();
-        this._spotlight = null;
-      }
-
-      if (this._autoHide) {
-        this._autoHide = null;
-      }
-
-      if (this._glow) {
-        this._glow = null;
-      }
-
-      if (this._physics) {
-        this._physics = null;
-      }
-
-      this._canvas = null;
-      this._highlightActor = null;
-      this._outerRing = null;
-      this._innerRing = null;
-      this._clickState = null;
-      this._drawSettings = null;
+    if (this._physics) {
+      this._physics = null;
     }
   }
 
@@ -263,12 +159,9 @@ export default class ZoomerExtension extends Extension {
   }
 
   _tick() {
-    if (!this._containerActor || !this._highlightActor)
-      return Clutter.TICK_STOP;
+    if (!this._physics) return Clutter.TICK_STOP;
 
     const [pointerX, pointerY, mask] = global.get_pointer();
-    const containerWidth = this._containerActor.get_width();
-    const containerHeight = this._containerActor.get_height();
 
     if (this._magnifier) {
       this._magnifier.pollActivation(mask);
@@ -280,109 +173,19 @@ export default class ZoomerExtension extends Extension {
       this._magnifier.update(curX, curY);
     }
 
-    // detect button state from mask
-    const leftPressed = (mask & Clutter.ModifierType.BUTTON1_MASK) !== 0;
-    const rightPressed = (mask & Clutter.ModifierType.BUTTON3_MASK) !== 0;
-    const anyPressed = leftPressed || rightPressed;
-
-    // auto-hide animates the container's opacity, so it must stay out of the
-    // way while the ring is switched off
-    if (this._autoHide && this._highlightRing) {
-      this._autoHide.update(curX, curY, anyPressed, 16);
-    }
-
     if (this._spotlight) {
       this._spotlight.pollActivation(mask);
       this._spotlight.update(curX, curY);
     }
 
-    if (!this._clickState) {
-      this._clickState = {
-        active: false,
-        button: null, // 'left' / 'right'
-        progress: 0.0, // 0.0 to 1.0
-        closing: false, // true if releasing button
-      };
-    }
-
-    // detect button state from mask
-    const pressedButton = leftPressed ? "left" : rightPressed ? "right" : null;
-
-    // react to state changes
-    if (anyPressed && !this._clickState.active) {
-      // START CLICK
-      this._clickState.active = true;
-      this._clickState.button = pressedButton;
-      this._clickState.progress = 0.0;
-      this._clickState.closing = false;
-      this._canvas.queue_repaint();
-    } else if (
-      !anyPressed &&
-      this._clickState.active &&
-      !this._clickState.closing
-    ) {
-      // RELEASE CLICK
-      this._clickState.closing = true;
-    }
-
-    // animate progress
-    if (this._clickState.active) {
-      const speed = 0.15;
-
-      if (!this._clickState.closing) {
-        if (this._clickState.progress < 1.0) {
-          this._clickState.progress = Math.min(
-            1.0,
-            this._clickState.progress + speed,
-          );
-          this._canvas.queue_repaint();
-        }
-      } else {
-        if (this._clickState.progress > 0.0) {
-          this._clickState.progress = Math.max(
-            0.0,
-            this._clickState.progress - speed,
-          );
-          this._canvas.queue_repaint();
-        } else {
-          this._clickState.active = false;
-          this._clickState.button = null;
-        }
-      }
-    }
-
-    this._containerActor.set_position(
-      curX - containerWidth / 2,
-      curY - containerHeight / 2,
-    );
-
-    if (
-      this._rgbEnabled &&
-      this._highlightRing &&
-      this._drawSettings &&
-      this._drawSettings.color
-    ) {
-      const now = GLib.get_monotonic_time() / 1000; // ms
-      const speed = this._rgbSpeed || 2.0;
-      const hue = (now * speed * 0.1) % 360;
-      const rgb = hslToRgb(hue, 1.0, 0.5);
-
-      this._drawSettings.color.red = rgb.red;
-      this._drawSettings.color.green = rgb.green;
-      this._drawSettings.color.blue = rgb.blue;
-      this._drawSettings.color.alpha = 1.0;
-
-      this._canvas.queue_repaint();
-    }
-
     return Clutter.TICK_CONTINUE;
   }
 
-  _toggleHighlight() {
+  _toggleEnabled() {
     if (this._settings.get_boolean("enabled")) {
-      this._createHighlightActor();
+      this._start();
     } else {
-      this._removeHighlightActor();
+      this._stop();
     }
   }
 
@@ -393,7 +196,7 @@ export default class ZoomerExtension extends Extension {
     }
 
     if (key === "enabled") {
-      this._toggleHighlight();
+      this._toggleEnabled();
       return;
     }
 
@@ -403,55 +206,6 @@ export default class ZoomerExtension extends Extension {
       key === "inertia-enabled"
     ) {
       this._updatePhysicsConstants();
-      return;
     }
-
-    if (key === "glow" || key === "glow-radius" || key === "glow-spread") {
-      if (this._glow) {
-        this._glow.updateConstants();
-      }
-    }
-
-    if (key === "rgb-enabled") {
-      this._rgbEnabled = this._settings.get_boolean("rgb-enabled");
-    }
-    if (key === "rgb-speed") {
-      this._rgbSpeed = this._settings.get_double("rgb-speed");
-    }
-    if (key === "highlight-ring") {
-      this._highlightRing = this._settings.get_boolean("highlight-ring");
-      if (this._autoHide) {
-        this._autoHide.reset();
-      }
-    }
-    this._refreshStyle();
-  }
-
-  _refreshStyle() {
-    if (!this._highlightActor || !this._containerActor) return;
-
-    this._drawSettings = buildDrawSettings({
-      settings: this._settings,
-      interfaceSettings: this._interfaceSettings,
-      glow: this._glow,
-    });
-
-    const totalSize = calculateCanvasSize(this._drawSettings.size, this._glow);
-
-    this._containerActor.set_size(totalSize, totalSize);
-    this._canvas.set_size(totalSize, totalSize);
-    this._canvas.queue_repaint();
-
-    this._containerActor.set_opacity(255);
-    this._containerActor.visible = this._highlightRing;
-  }
-
-  _drawHighlight(area) {
-    renderHighlight(area, {
-      drawSettings: this._drawSettings,
-      clickState: this._clickState,
-      glow: this._glow,
-      settings: this._settings,
-    });
   }
 }
