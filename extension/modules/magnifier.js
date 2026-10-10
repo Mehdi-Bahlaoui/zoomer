@@ -31,6 +31,8 @@ export class Magnifier {
     this._sceneCloner = null;
     this._active = false;
     this._keyPressed = false;
+    this._hiding = false;
+    this._inChrome = false;
     this._lastLogTime = null;
   }
 
@@ -53,9 +55,9 @@ export class Magnifier {
     });
     this._group.add_child(this._contentGroup);
 
-    Main.layoutManager.addChrome(this._group, {
-      trackFullscreen: true,
-    });
+    // NB: not added to chrome here. The lens is added on activate() and
+    // removed once the fade-out completes, so Shell fullscreen/overview
+    // transitions can never force-show a stale hidden lens.
   }
 
   /**
@@ -65,7 +67,7 @@ export class Magnifier {
     this._cleanupResources();
 
     if (this._group) {
-      Main.layoutManager.removeChrome(this._group);
+      this._removeFromChrome();
       this._group.destroy();
       this._group = null;
     }
@@ -159,14 +161,37 @@ export class Magnifier {
   }
 
   /**
+   * Track the lens as Shell chrome while it is on screen, untrack it once
+   * it is gone. A persistently-tracked-but-hidden actor risks being
+   * force-shown by Shell fullscreen/overview transitions.
+   */
+  _ensureInChrome() {
+    if (this._group && !this._inChrome) {
+      Main.layoutManager.addChrome(this._group, {
+        trackFullscreen: true,
+      });
+      this._inChrome = true;
+    }
+  }
+
+  _removeFromChrome() {
+    if (this._group && this._inChrome) {
+      Main.layoutManager.removeChrome(this._group);
+      this._inChrome = false;
+    }
+  }
+
+  /**
    * Activate magnifier with spring animation
    */
   activate() {
     if (!this._group) return;
     if (!this._settings.get_boolean("magnifier-enabled")) return;
 
-    const isInterruptedExit = this._group.visible && this._group.opacity > 0;
+    // reverse an in-flight fade-out rather than stacking a second lens
+    const isInterruptedExit = this._hiding === true;
     if (this._active && !isInterruptedExit) {
+      this._ensureInChrome();
       this._group.remove_all_transitions();
       this._group.opacity = 255;
       this._group.set_scale(1.0, 1.0);
@@ -176,7 +201,9 @@ export class Magnifier {
 
     console.log("[Zoomer] Magnifier ACTIVATED");
     this._active = true;
+    this._hiding = false;
 
+    this._ensureInChrome();
     this._group.remove_all_transitions();
 
     if (!isInterruptedExit) {
@@ -218,6 +245,7 @@ export class Magnifier {
 
     console.log("[Zoomer] Magnifier DEACTIVATED");
     this._active = false;
+    this._hiding = true;
 
     this._group.remove_all_transitions();
     this._group.ease({
@@ -229,7 +257,9 @@ export class Magnifier {
       onComplete: () => {
         if (!this._active) {
           this._group.visible = false;
+          this._removeFromChrome();
           this._cleanupResources();
+          this._hiding = false;
         }
       },
     });

@@ -220,6 +220,8 @@ export class Spotlight {
 
     this._active = true;
 
+    console.log("[Zoomer] Spotlight ACTIVATED");
+
     // reverse an in-flight fade-out rather than stacking a second overlay
     if (this._actor) {
       const from = this._progress();
@@ -261,6 +263,7 @@ export class Spotlight {
 
     if (!this._actor || this._exiting) return;
 
+    console.log("[Zoomer] Spotlight DEACTIVATED");
     this._exiting = true;
     this._startTransition(this._progress(), 0.0);
   }
